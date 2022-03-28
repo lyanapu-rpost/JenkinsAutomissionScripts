@@ -1,0 +1,904 @@
+import jenkins.model.*
+pipeline {
+    agent any
+    parameters {
+    string defaultValue: '2022.1.3', description: '', name: 'github_branch', trim: false
+    string defaultValue: 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\Common7\\IDE', description: '', name: 'VS_TOOLS', trim: false
+    booleanParam(name: "ALL", defaultValue: false)
+    booleanParam(name: "Core_Service", defaultValue: false)
+    booleanParam(name: "Core_Smtp_Service", defaultValue: false)
+    booleanParam(name: "Esign_Service", defaultValue: false)
+    booleanParam(name: "Rmail_Receipt", defaultValue: false)
+    booleanParam(name: "Rmail_Registered", defaultValue: false)
+    booleanParam(name: "Rmail_Returns", defaultValue: false)
+    booleanParam(name: "Rmail_Secure", defaultValue: false)
+    booleanParam(name: "Rmail_Dispatch", defaultValue: false)
+    booleanParam(name: "Directory_Management", defaultValue: false)
+    booleanParam(name: "NotificationService", defaultValue: false)
+    booleanParam(name: "UserService", defaultValue: false)
+    booleanParam(name: "WatchDog", defaultValue: false)
+    booleanParam(name: "Winmail", defaultValue: false)
+    booleanParam(name: "BackOffice", defaultValue: false)
+    booleanParam(name: "OpenDetection_Open", defaultValue: false)
+    booleanParam(name: "Esign_Documents", defaultValue: false)
+    booleanParam(name: "Secure_Passwords", defaultValue: false)
+    booleanParam(name: "TranslationJson", defaultValue: false)
+    }
+    stages {
+      stage('clean workspace') {
+        steps {
+          cleanWs(deleteDirs: true)
+              }
+          }
+      stage('git clone') {
+        steps {
+            git branch: '${github_branch}', credentialsId: 'github-user-token', url: 'https://github.com/RPostUS/RCS.git'
+              }
+          }
+
+          stage('common build') {
+          
+          steps {
+          echo 'restore core'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Core\\Rpost.Rmail.Core.sln\""
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Data\\Rpost.Rmail.Data.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Data\\Rpost.Rmail.Data.sln\""
+          
+          echo 'Rpost.Common'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Common\\Rpost.Common.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Common\\Rpost.Common.sln\""
+          
+          echo 'Rpost.Common.Notification'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Common.Notification\\Rpost.Common.Notification.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Common.Notification\\Rpost.Common.Notification.sln\""
+
+          echo 'Rpost.FileStorage'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.FileStorage\\Rpost.FileStorage.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.FileStorage\\Rpost.FileStorage.sln\""
+
+          echo 'Rpost.Rmail.Core'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Core\\Rpost.Rmail.Core.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Core\\Rpost.Rmail.Core.sln\""
+
+          echo 'Rpost.Rmail.Esign'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Esign\\Rpost.Rmail.Esign.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Esign\\Rpost.Rmail.Esign.sln\""
+          
+            }
+          }
+
+          stage('build Core') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Core_Service }
+                        }
+                  }
+          steps {
+          
+          echo 'archive Rpost.Rmail.Core'
+          bat "mkdir Rpost.Rmail.Core.tmp"
+          bat "move \"Rpost.Rmail.Core\\Rpost.Rmail.Core.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Core.tmp\""
+          bat "move \"Rpost.Rmail.Core\\Rpost.Rmail.Core.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Core.tmp\""
+          bat "move \"Rpost.Rmail.Core\\Rpost.Rmail.Core.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Core.tmp\""
+          bat "move \"Rpost.Rmail.Core\\Rpost.Rmail.Core.Service\\bin\\Debug\\*.xml\" \"Rpost.Rmail.Core.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Core.tmp', 'Rpost.Rmail.Core.zip'); }\""
+         
+          }
+          }
+          stage('build Rpost.Rmail.Core.Smtp') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Core_Smtp_Service }
+                        }
+                  }
+          steps {
+          echo 'Rpost.Rmail.Core.Smtp'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Core.Smtp\\Rpost.Rmail.Core.Smtp.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Core.Smtp\\Rpost.Rmail.Core.Smtp.sln\""
+          echo 'archive Rpost.Rmail.Core.Smtp'
+          bat "mkdir Rpost.Rmail.Core.Smtp.tmp"
+          bat "move \"Rpost.Rmail.Core.Smtp\\Rpost.Rmail.Core.Smtp.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Core.Smtp.tmp\""
+          bat "move \"Rpost.Rmail.Core.Smtp\\Rpost.Rmail.Core.Smtp.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Core.Smtp.tmp\""
+          bat "move \"Rpost.Rmail.Core.Smtp\\Rpost.Rmail.Core.Smtp.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Core.Smtp.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Core.Smtp.tmp', 'Rpost.Rmail.Core.Smtp.zip'); }\""
+         
+          }
+          }
+          stage('build Rpost.Rmail.Esign') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Esign_Service }
+                        }
+                  }
+          steps {
+          
+          echo 'archive Rpost.Rmail.Esign'
+          bat "mkdir Rpost.Rmail.Esign.tmp"
+          bat "move \"Rpost.Rmail.Esign\\Rpost.Rmail.Esign.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Esign.tmp\""
+          bat "move \"Rpost.Rmail.Esign\\Rpost.Rmail.Esign.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Esign.tmp\""
+          bat "move \"Rpost.Rmail.Esign\\Rpost.Rmail.Esign.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Esign.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Esign.tmp', 'Rpost.Rmail.Esign.zip'); }\""
+          
+          }
+          }
+          stage('build Rpost.Rmail.Receipt') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Receipt }
+                        }
+                  }
+          steps {          
+          echo 'Rpost.Rmail.Receipt'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Receipt\\Rpost.Rmail.Receipt.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Receipt\\Rpost.Rmail.Receipt.sln\""
+          echo 'archive Rpost.Rmail.Receipt'
+          bat "mkdir Rpost.Rmail.Receipt.tmp"
+          bat "move \"Rpost.Rmail.Receipt\\Rpost.Rmail.Receipt.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Receipt.tmp\""
+          bat "move \"Rpost.Rmail.Receipt\\Rpost.Rmail.Receipt.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Receipt.tmp\""
+          bat "move \"Rpost.Rmail.Receipt\\Rpost.Rmail.Receipt.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Receipt.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Receipt.tmp', 'Rpost.Rmail.Receipt.zip'); }\""
+         
+          }
+          }
+          stage('build Rpost.Rmail.Registered') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Registered }
+                        }
+                  }
+          steps {     
+          echo 'Rpost.Rmail.Registered'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Registered\\Rpost.Rmail.Registered.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Registered\\Rpost.Rmail.Registered.sln\""
+          echo 'archive Rpost.Rmail.Registered'
+          bat "mkdir Rpost.Rmail.Registered.tmp"
+          bat "move \"Rpost.Rmail.Registered\\Rpost.Rmail.Registered.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Registered.tmp\""
+          bat "move \"Rpost.Rmail.Registered\\Rpost.Rmail.Registered.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Registered.tmp\""
+          bat "move \"Rpost.Rmail.Registered\\Rpost.Rmail.Registered.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Registered.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Registered.tmp', 'Rpost.Rmail.Registered.zip'); }\""
+          }
+          }
+          stage('build Rpost.Rmail.Returns') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Returns }
+                        }
+                  }
+          steps {
+         
+          echo 'Rpost.Rmail.Returns'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Returns\\Rpost.Rmail.Returns.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Returns\\Rpost.Rmail.Returns.sln\""
+          echo 'archive Rpost.Rmail.Returns'
+          bat "mkdir Rpost.Rmail.Returns.tmp"
+          bat "move \"Rpost.Rmail.Returns\\Rpost.Rmail.Returns.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Returns.tmp\""
+          bat "move \"Rpost.Rmail.Returns\\Rpost.Rmail.Returns.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Returns.tmp\""
+          bat "move \"Rpost.Rmail.Returns\\Rpost.Rmail.Returns.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Returns.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Returns.tmp', 'Rpost.Rmail.Returns.zip'); }\""
+          }
+          }
+          stage('build Rpost.Rmail.Secure') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Secure }
+                        }
+                  }
+          steps {
+          
+          echo 'Rpost.Rmail.Secure'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Secure\\Rpost.Rmail.Secure.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Secure\\Rpost.Rmail.Secure.sln\""
+          echo 'archive Rpost.Rmail.Secure'
+          bat "mkdir Rpost.Rmail.Secure.tmp"
+          bat "move \"Rpost.Rmail.Secure\\Rpost.Rmail.Secure.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Secure.tmp\""
+          bat "move \"Rpost.Rmail.Secure\\Rpost.Rmail.Secure.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Secure.tmp\""
+          bat "move \"Rpost.Rmail.Secure\\Rpost.Rmail.Secure.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Secure.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Secure.tmp', 'Rpost.Rmail.Secure.zip'); }\""
+          }
+          }
+          stage('build Rpost.Rmail.Dispatch ') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Dispatch }
+                        }
+                  }
+          steps {
+          
+          echo 'Rpost.Rmail.Dispatch'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Dispatch\\Rpost.Rmail.Dispatch.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Dispatch\\Rpost.Rmail.Dispatch.sln\""
+          echo 'archive Rpost.Rmail.Dispatch'
+          bat "mkdir Rpost.Rmail.Dispatch.tmp"
+          bat "move \"Rpost.Rmail.Dispatch\\Rpost.Rmail.Dispatch.Service\\bin\\Debug\\*.dll\" \"Rpost.Rmail.Dispatch.tmp\""
+          bat "move \"Rpost.Rmail.Dispatch\\Rpost.Rmail.Dispatch.Service\\bin\\Debug\\*.exe\" \"Rpost.Rmail.Dispatch.tmp\""
+          bat "move \"Rpost.Rmail.Dispatch\\Rpost.Rmail.Dispatch.Service\\bin\\Debug\\*.pdb\" \"Rpost.Rmail.Dispatch.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Dispatch.tmp', 'Rpost.Rmail.Dispatch.zip'); }\""
+          }
+          }
+          stage('build Rpost.DirectoryManagement') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Directory_Management }
+                        }
+                  }
+          steps {
+                   
+          echo 'Rpost.DirectoryManagement'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.DirectoryManagement\\Rpost.DirectoryManagement.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.DirectoryManagement\\Rpost.DirectoryManagement.sln\""
+          echo 'archive Rpost.DirectoryManagement'
+          bat "mkdir Rpost.DirectoryManagement.tmp"
+          bat "move \"Rpost.DirectoryManagement\\Rpost.DirectoryManagement.Service\\bin\\Debug\\*.dll\" \"Rpost.DirectoryManagement.tmp\""
+          bat "move \"Rpost.DirectoryManagement\\Rpost.DirectoryManagement.Service\\bin\\Debug\\*.exe\" \"Rpost.DirectoryManagement.tmp\""
+          bat "move \"Rpost.DirectoryManagement\\Rpost.DirectoryManagement.Service\\bin\\Debug\\*.pdb\" \"Rpost.DirectoryManagement.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.DirectoryManagement.tmp', 'Rpost.DirectoryManagement.zip'); }\""
+          }
+          }
+          stage('build Rpost.NotificationService') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.NotificationService }
+                        }
+                  }
+          steps {
+
+          echo 'RPost.NotificationService'
+          bat "\"${NUGET_EXE}\" restore \"RPost.NotificationService\\RPost.NotificationService.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"RPost.NotificationService\\RPost.NotificationService.sln\""
+          echo 'archive RPost.NotificationService'
+          bat "mkdir RPost.NotificationService.tmp"
+          bat "move \"RPost.NotificationService\\RPost.NotificationService\\bin\\Debug\\*.dll\" \"RPost.NotificationService.tmp\""
+          bat "move \"RPost.NotificationService\\RPost.NotificationService\\bin\\Debug\\*.exe\" \"RPost.NotificationService.tmp\""
+          bat "move \"RPost.NotificationService\\RPost.NotificationService\\bin\\Debug\\*.pdb\" \"RPost.NotificationService.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('RPost.NotificationService.tmp', 'RPost.NotificationService.zip'); }\""
+          }
+          }
+          stage('build Rpost.UserService') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.UserService }
+                        }
+                  }
+          steps {
+
+          echo 'RPost.UserService'
+          bat "\"${NUGET_EXE}\" restore \"RPost.UserService\\RPost.UserService.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"RPost.UserService\\RPost.UserService.sln\""
+          echo 'archive RPost.UserService'
+          bat "mkdir RPost.UserService.tmp"
+          bat "move \"RPost.UserService\\RPost.UserService\\bin\\Debug\\*.dll\" \"RPost.UserService.tmp\""
+          bat "move \"RPost.UserService\\RPost.UserService\\bin\\Debug\\*.exe\" \"RPost.UserService.tmp\""
+          bat "move \"RPost.UserService\\RPost.UserService\\bin\\Debug\\*.pdb\" \"RPost.UserService.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('RPost.UserService.tmp', 'RPost.UserService.zip'); }\""
+          }
+          }
+          stage('build Rpost.WatchDog') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.WatchDog }
+                        }
+                  }
+          steps {
+
+          echo 'RPost.WatchDog'
+          bat "\"${NUGET_EXE}\" restore \"RPost.WatchDog\\RPost.WatchDog.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"RPost.WatchDog\\RPost.WatchDog.sln\""
+          echo 'archive RPost.WatchDog'
+          bat "mkdir RPost.WatchDog.tmp"
+          bat "move \"RPost.WatchDog\\RCS.WatchDog.Service\\bin\\Debug\\*.dll\" \"RPost.WatchDog.tmp\""
+          bat "move \"RPost.WatchDog\\RCS.WatchDog.Service\\bin\\Debug\\*.exe\" \"RPost.WatchDog.tmp\""
+          bat "move \"RPost.WatchDog\\RCS.WatchDog.Service\\bin\\Debug\\*.pdb\" \"RPost.WatchDog.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('RPost.WatchDog.tmp', 'RPost.WatchDog.zip'); }\""
+          }
+          }
+          stage('build Rpost.Winmail') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Winmail }
+                        }
+                  }
+          steps {
+
+          echo 'Rpost.Winmail'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Winmail\\Rpost.Winmail\\Rpost.Winmail.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Winmail\\Rpost.Winmail\\Rpost.Winmail.sln\""
+          echo 'archive Rpost.Winmail'
+          bat "mkdir Rpost.Winmail.tmp"
+          bat "move \"Rpost.Winmail\\Rpost.Winmail\\bin\\Debug\\*.dll\" \"Rpost.Winmail.tmp\""
+          bat "move \"Rpost.Winmail\\Rpost.Winmail\\bin\\Debug\\*.exe\" \"Rpost.Winmail.tmp\""
+          bat "move \"Rpost.Winmail\\Rpost.Winmail\\bin\\Debug\\*.pdb\" \"Rpost.Winmail.tmp\""
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Winmail.tmp', 'Rpost.Winmail.zip'); }\""
+          }
+          }
+          stage('build Rpost.BackOffice') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.BackOffice }
+                        }
+                  }
+          steps {
+
+          echo 'Rpost.BackOffice'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.BackOffice\\Rpost.BackOffice.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.BackOffice\\Rpost.BackOffice.sln\" /p:DeployOnBuild=True /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:DeleteExistingFiles=True /p:publishUrl=\"${workspace}/Rpost.BackOffice.tmp\""
+          echo 'archive Rpost.BackOffice'
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.BackOffice.tmp', 'Rpost.BackOffice.zip'); }\""
+          }
+          }
+          stage('build Rpost.OpenDetection.Open') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.OpenDetection_Open }
+                        }
+                  }
+          steps {         
+          echo 'Rpost.OpenDetection.Open'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.OpenDetection.Open\\Rpost.OpenDetection.Open.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.OpenDetection.Open\\Rpost.OpenDetection.Open.sln\" /p:DeployOnBuild=True /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:DeleteExistingFiles=True /p:publishUrl=\"${workspace}/Rpost.OpenDetection.Open.tmp\""
+          echo 'archive Rpost.OpenDetection.Open'
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.OpenDetection.Open.tmp', 'Rpost.OpenDetection.Open.zip'); }\""
+          }
+          }
+          stage('build Rpost.Rmail.Esign.Documents') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Esign_Documents }
+                        }
+                  }
+          steps {
+
+          echo 'Rpost.Rmail.Esign.Documents'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Esign.Documents\\Rpost.Rmail.Esign.Documents.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Esign.Documents\\Rpost.Rmail.Esign.Documents.sln\" /p:DeployOnBuild=True /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:DeleteExistingFiles=True /p:publishUrl=\"${workspace}/Rpost.Rmail.Esign.Documents.tmp\""
+          echo 'archive Rpost.Rmail.Esign.Documents'
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Esign.Documents.tmp', 'Rpost.Rmail.Esign.Documents.zip'); }\""
+          }
+          }
+          
+          stage('build Rpost.Rmail.Secure.Passwords') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Secure_Passwords }
+                        }
+                  }
+          steps {
+
+          echo 'Rpost.Rmail.Secure.Passwords'
+          bat "\"${NUGET_EXE}\" restore \"Rpost.Rmail.Secure.Passwords/Rpost.Rmail.Secure.Passwords.sln\""
+          bat "\"${tool 'MSBAgent'}msbuild\" \"Rpost.Rmail.Secure.Passwords/Rpost.Rmail.Secure.Passwords.sln\" /p:DeployOnBuild=True /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:DeleteExistingFiles=True /p:publishUrl=\"${workspace}/Rpost.Rmail.Secure.Passwords.tmp\""
+          echo 'archive Rpost.Rmail.Secure.Passwords'
+          bat "powershell.exe -nologo -noprofile -command \"& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::CreateFromDirectory('Rpost.Rmail.Secure.Passwords.tmp', 'Rpost.Rmail.Secure.Passwords.zip'); }\""
+          }
+          }
+
+          stage('artifact') {
+              steps {
+                  archiveArtifacts artifacts: '**/*.zip', fingerprint: true
+                  powershell ''' 
+                  $objForRemote = @{}                
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  $file = $env:github_branch
+                  $Folder = \'D:\\Deployment\\Jenkins_test\'
+                  $Folder1 = "$Folder\\$file"
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER
+                  Copy-Item -Path D:\\Jenkins\\jobs\\RCS_ALL_BUILD\\jobs\\RCS_INDUVAL_BUILD\\builds\\$env:BUILD_NUMBER\\archive\\*.zip -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER 
+
+                  "Test to see if folder [$Folder1]  exists"
+                  if (Test-Path -Path $Folder1) {
+                  "Path exists!"
+                  echo $Folder1
+                  Copy-Item -Path D:\\Jenkins\\jobs\\RCS_ALL_BUILD\\jobs\\RCS_INDUVAL_BUILD\\builds\\$($objForRemote.build)\\archive\\*.zip -Destination $Folder1\\services -Recurse -Force
+                  } else {
+                  "Path doesn\'t exist."
+                  mkdir $Folder1\\services
+                  mkdir $Folder1\\sites
+                  Copy-Item -Path D:\\Jenkins\\jobs\\RCS_ALL_BUILD\\jobs\\RCS_INDUVAL_BUILD\\builds\\$($objForRemote.build)\\archive\\*.zip -Destination $Folder1\\services -Recurse -Force
+                  "$Folder1 folder created"
+                  }                
+                  '''
+                script {
+                  if (env.TranslationJson == 'true') {
+                        echo 'I only execute on the TranslationJson'
+                        powershell '''
+                        $objForRemote = @{}
+                        $objForRemote.build = $env:BUILD_NUMBER                  
+                        $build_number = $env:branch
+                        $file = $env:github_branch
+                        $Folder = \'D:\\Deployment\\Jenkins_test\'
+                        $Folder1 = "$Folder\\$file"
+                        Copy-Item -Path Rpost.Rmail.Globalization\\Rpost.Rmail.Globalization.Text\\TranslationJson -Destination $Folder1 -Recurse -Force
+                        Copy-Item -Path Rpost.Rmail.Globalization\\Rpost.Rmail.Globalization.Text\\TranslationJson -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER  -Recurse -Force
+
+                         '''
+                  } else {
+                        echo 'NO TranslationJson copied'
+                   }
+                  }
+              }  
+          }
+          stage('deplyment Core') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Core_Service }
+                        }
+                  }
+              steps {
+                    script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\core.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Core.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Core 
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Core | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\core.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\core.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\core.tmp.zip                 
+                  '''  
+                  }       
+              }
+          }
+          stage('deplyment Core.Smtp') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Core_Smtp_Service }
+                        }
+                  }
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\core_smtp.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Core.Smtp.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Core.smtp 
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Core.smtp | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\core_smtp.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\core_smtp.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\core_smtp.tmp.zip                 
+                  '''  
+                  }
+
+              }
+          }
+          stage('deplyment Rpost.Rmail.Esign') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Esign_Service }
+                        }
+                  }
+              steps {
+                
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign 
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage('deplyment Rpost.Rmail.Receipt') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Receipt }
+                        }
+                  }
+              steps {
+                script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Receipt.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Receipt.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Receipt 
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Receipt | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Receipt.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Receipt.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Receipt.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage('deplyment Rpost.Rmail.Registered') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Registered }
+                        }
+                  }
+              steps {
+                script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Registered.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Registered.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Registered
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Registered | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Registered.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Registered.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Registered.tmp.zip                 
+                  '''  
+                  }
+              }
+          }                   
+          stage('deplyment Rpost.Rmail.Returns') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Returns }
+                        }
+                  }
+              steps {
+                script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Returns.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Returns.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Returns
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Returns | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Returns.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Returns.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Returns.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage('deplyment Rpost.Rmail.Secure') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Secure }
+                        }
+                  }
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+                    stage('deplyment Rpost.Rmail.Dispatch') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Rmail_Dispatch }
+                        }
+                  }
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Dispatch.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Dispatch.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Dispatch
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Dispatch | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Dispatch.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Dispatch.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Dispatch.tmp.zip                 
+                  '''  
+                  }
+              }
+          }          
+          stage('deplyment Rpost.DirectoryManagement') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Directory_Management }
+                        }
+                  }
+
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\DirectoryManagement.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.DirectoryManagement.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.DirectoryManagement
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.DirectoryManagement | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\DirectoryManagement.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\DirectoryManagement.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\DirectoryManagement.tmp.zip                 
+                  '''  
+                  }
+
+              }
+          } 
+          stage('deplyment Rpost.NotificationService') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.NotificationService }
+                        }
+                  }
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\NotificationService.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.NotificationService.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.NotificationService
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.NotificationService | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\NotificationService.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\NotificationService.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\NotificationService.tmp.zip                 
+                  '''  
+                  }
+                  
+              }
+          }
+          stage('deplyment Rpost.UserService') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.UserService }
+                        }
+                  }
+              steps {
+                script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\UserService.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.UserService.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.UserService
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.UserService | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\UserService.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\UserService.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\UserService.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage('deplyment Rpost.WatchDog') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.WatchDog }
+                        }
+                  }
+              steps {          
+                script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\WatchDog.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.WatchDog.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.WatchDog
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\RPost.WatchDog | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\WatchDog.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\WatchDog.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\WatchDog.tmp.zip                 
+                  '''  
+                  }
+
+              }
+          }
+          stage('deplyment Rpost.Winmail') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Winmail }
+                        }
+                  }
+              steps {                    
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail.tmp}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Winmail.tmp.zip                 
+                  '''  
+                  } 
+              }
+          }
+          stage('deplyment Rpost.BackOffice') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.BackOffice }
+                        }
+                  }
+              steps {
+                script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\BackOffice.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.BackOffice.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.BackOffice 
+
+                  Copy-Item -Path (Get-Item -Path "D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.BackOffice\\*" -Exclude ('bin', 'Config', 'NLog.config', 'packages.config', 'Web.config','Global.asax')).FullName -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\BackOffice.tmp -Recurse -Force
+
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\BackOffice.tmp\\bin
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.BackOffice\\bin | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\BackOffice.tmp\\bin -Recurse -Force}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\BackOffice.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\BackOffice.tmp.zip                 
+                  '''  
+                  }
+              }
+          }          
+          stage('deplyment Rpost.OpenDetection.Open') {
+             when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.OpenDetection_Open }
+                        }
+                  }
+              steps {                   
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\OpenDetection.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.OpenDetection.Open.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.OpenDetection
+
+                  Copy-Item -Path (Get-Item -Path "D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.OpenDetection\\*" -Exclude ('bin', 'NLog.config', 'packages.config', 'Web.config', 'Global.asax')).FullName -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\OpenDetection.tmp -Recurse -Force
+
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\OpenDetection.tmp\\bin
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.OpenDetection\\bin | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\OpenDetection.tmp\\bin -Recurse -Force}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\OpenDetection.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\OpenDetection.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage('deplyment Rmail.Esign.Documents') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Esign_Documents }
+                        }
+                  }
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign_Documents.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign.Documents.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign.Documents
+
+                  Copy-Item -Path (Get-Item -Path "D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign.Documents\\*" -Exclude ('bin', 'NLog.config', 'packages.config', 'Web.config', 'Global.asax')).FullName -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign_Documents.tmp -Recurse -Force
+
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign_Documents.tmp\\bin
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Esign.Documents\\bin | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign_Documents.tmp\\bin -Recurse -Force}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign_Documents.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Esign_Documents.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage('deplyment Rmail.Secure.Passwords') {
+            when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Secure_Passwords }
+                        }
+                  }
+              steps {
+                  script {
+                  powershell '''
+                  $objForRemote = @{}
+                  $objForRemote.build = $env:BUILD_NUMBER 
+                  echo '------copying today date modefied files to core.tmp--------'
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure_Passwords.tmp
+
+                  Expand-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure.Passwords.zip -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure.Passwords
+
+                  Copy-Item -Path (Get-Item -Path "D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure.Passwords\\*" -Exclude ('bin', 'NLog.config', 'packages.config', 'Web.config', 'Global.asax')).FullName -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure_Passwords.tmp -Recurse -Force
+
+                  mkdir D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure_Passwords.tmp\\bin
+
+                  Get-ChildItem -path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Rpost.Rmail.Secure.Passwords\\bin | % {if((!($_.psiscontianer))-and(Get-Date $_.LastWriteTime -Uformat %D)-eq(Get-Date -UFormat %D)){$_ | Copy-Item -Destination D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure_Passwords.tmp\\bin -Recurse -Force}}
+
+                  Compress-Archive -Path D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure_Passwords.tmp\\* -DestinationPath D:\\unzip_newcode\\$env:BUILD_NUMBER\\Secure_Passwords.tmp.zip                 
+                  '''  
+                  }
+              }
+          }
+          stage ('deploying code to trans 14') {
+          when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.Core_Service }
+                        expression { params.Core_Smtp_Service }
+                        expression { params.Esign_Service }
+                        expression { params.Rmail_Receipt }
+                        expression { params.Rmail_Registered }
+                        expression { params.Rmail_Returns }
+                        expression { params.Rmail_Secure }
+                        expression { params.Directory_Management }
+                        expression { params.NotificationService }
+                        expression { params.WatchDog }
+                        expression { params.UserService }
+                        }
+                  }
+
+            steps {
+                  echo 'trans41'
+                        }
+          }
+          stage ('deploying code to SM 41') {
+          when {
+                  anyOf {
+                        expression { params.ALL }
+                        expression { params.BackOffice }
+                        expression { params.OpenDetection_Open }
+                        expression { params.Esign_Documents }
+                        expression { params.Secure_Passwords }
+                        }
+                  }
+
+            steps {
+                  echo 'sites'                 
+            }
+          }
+      }
+  }
